@@ -14,7 +14,6 @@ const ACTION_TEXT: Record<string, string> = {
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Yönetici (admin)',
-  editor: 'Yönetici yetkili',
   member: 'Üye',
 }
 
@@ -95,10 +94,10 @@ export function AdminBar() {
                 <strong>{u.id}</strong>
                 <div className="pending-item-meta">{ROLE_LABEL[u.role]}</div>
               </div>
-              {u.role !== 'admin' && (
+              {u.id !== currentUser.id && (
                 <div className="pending-item-actions">
                   {u.role === 'member' ? (
-                    <button className="primary-btn" onClick={() => setRole(u.id, 'editor')}>Yönetici yap</button>
+                    <button className="primary-btn" onClick={() => setRole(u.id, 'admin')}>Admin yap</button>
                   ) : (
                     <button className="ghost-btn" onClick={() => setRole(u.id, 'member')}>Üyeye düşür</button>
                   )}

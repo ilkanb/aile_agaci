@@ -4,18 +4,18 @@ import { useAuthStore } from '../store/authStore'
 export function LoginScreen() {
   const login = useAuthStore((s) => s.login)
   const register = useAuthStore((s) => s.register)
+  const hasNoUsers = useAuthStore((s) => Object.keys(s.users).length === 0)
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [adminPin, setAdminPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function submit() {
     setBusy(true)
     setError(null)
-    const result = mode === 'login' ? await login(username, password) : await register(username, password, adminPin)
+    const result = mode === 'login' ? await login(username, password) : await register(username, password)
     setBusy(false)
     if (!result.ok) setError(result.error ?? 'Bir şeyler ters gitti')
   }
@@ -54,20 +54,8 @@ export function LoginScreen() {
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
 
-        {mode === 'register' && (
-          <input
-            type="password"
-            placeholder="Yönetici kurulum şifresi (opsiyonel)"
-            value={adminPin}
-            onChange={(e) => setAdminPin(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-          />
-        )}
-
-        {mode === 'register' && (
-          <div className="login-hint">
-            Sadece ilk yöneticiyi belirlemek için — boş bırakırsan normal üye olarak kayıt olursun.
-          </div>
+        {mode === 'register' && hasNoUsers && (
+          <div className="login-hint">Bu ağaçta ilk hesap sensin — otomatik olarak yönetici olacaksın.</div>
         )}
 
         {error && <div className="error-text">{error}</div>}

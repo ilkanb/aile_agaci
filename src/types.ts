@@ -50,7 +50,7 @@ export interface FamilyState {
   pending: PendingAction[]
 }
 
-export type Role = 'admin' | 'editor' | 'member'
+export type Role = 'admin' | 'member'
 
 export interface User {
   id: string

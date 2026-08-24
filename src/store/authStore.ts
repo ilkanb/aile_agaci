@@ -4,11 +4,6 @@ import type { Role, User } from '../types'
 const USERS_KEY = 'aile-agaci-users-v1'
 const SESSION_KEY = 'aile-agaci-session-v1'
 
-// Shared secret to bootstrap the first admin account(s) at registration time.
-// This is a client-only prototype (no backend) so this is identification, not
-// real security — anyone with devtools access can read localStorage regardless.
-const ADMIN_SETUP_PIN = '2026'
-
 interface StoredShape {
   users: Record<string, User>
 }
@@ -51,14 +46,14 @@ async function hashPassword(username: string, password: string): Promise<string>
 }
 
 export function canApprove(user: User | null | undefined): boolean {
-  return user?.role === 'admin' || user?.role === 'editor'
+  return user?.role === 'admin'
 }
 
 interface AuthStore {
   users: Record<string, User>
   currentUserId: string | null
   currentUser: () => User | null
-  register: (username: string, password: string, adminPin: string) => Promise<{ ok: boolean; error?: string }>
+  register: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
   setRole: (userId: string, role: Role) => void
@@ -73,14 +68,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     return id ? get().users[id] ?? null : null
   },
 
-  register: async (usernameRaw, password, adminPin) => {
+  register: async (usernameRaw, password) => {
     const username = usernameRaw.trim()
     if (!username || !password) return { ok: false, error: 'Kullanıcı adı ve şifre gerekli' }
     const key = username.toLocaleLowerCase('tr')
     if (get().users[key]) return { ok: false, error: 'Bu kullanıcı adı zaten alınmış' }
 
     const passwordHash = await hashPassword(username, password)
-    const role: Role = adminPin.trim() === ADMIN_SETUP_PIN ? 'admin' : 'member'
+    // İlk kayıt olan kişi otomatik admin olur — ayrı bir yönetici şifresine gerek yok.
+    const role: Role = Object.keys(get().users).length === 0 ? 'admin' : 'member'
     const user: User = { id: username, passwordHash, role, createdAt: Date.now() }
 
     const users = { ...get().users, [key]: user }
