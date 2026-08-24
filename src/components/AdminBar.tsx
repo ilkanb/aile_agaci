@@ -18,7 +18,7 @@ const ROLE_LABEL: Record<Role, string> = {
 }
 
 export function AdminBar() {
-  const currentUser = useAuthStore((s) => s.currentUser())
+  const currentUser = useAuthStore((s) => s.currentUser)
   const logout = useAuthStore((s) => s.logout)
   const users = useAuthStore((s) => s.users)
   const setRole = useAuthStore((s) => s.setRole)

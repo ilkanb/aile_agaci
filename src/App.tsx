@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FamilyMap, type FamilyMapHandle } from './components/FamilyMap'
 import { MapControls } from './components/MapControls'
 import { SearchBox } from './components/SearchBox'
@@ -9,9 +9,11 @@ import { useFamilyStore } from './store/familyStore'
 import { useAuthStore, canApprove } from './store/authStore'
 
 function App() {
-  const currentUser = useAuthStore((s) => s.currentUser())
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const authReady = useAuthStore((s) => s.ready)
 
   const people = useFamilyStore((s) => s.people)
+  const familyReady = useFamilyStore((s) => s.ready)
   const selectedPersonId = useFamilyStore((s) => s.selectedPersonId)
   const select = useFamilyStore((s) => s.select)
 
@@ -19,12 +21,22 @@ function App() {
 
   const mapRef = useRef<FamilyMapHandle>(null)
 
+  useEffect(() => {
+    useAuthStore.getState().init()
+  }, [])
+
+  useEffect(() => {
+    if (currentUser) useFamilyStore.getState().init()
+  }, [currentUser])
+
   function focusPerson(id: string) {
     select(id)
     mapRef.current?.focusOn(id)
   }
 
+  if (!authReady) return null
   if (!currentUser) return <LoginScreen />
+  if (!familyReady) return null
 
   const selectedPerson = selectedPersonId ? people[selectedPersonId] : null
   const egoFocalPerson = egoFocalId ? people[egoFocalId] : null
