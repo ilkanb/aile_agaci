@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useImperativeHandle, forwardRef } from 'react'
 import { select } from 'd3-selection'
-import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom'
+import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type ZoomTransform } from 'd3-zoom'
+import 'd3-transition'
 import type { Person } from '../types'
 import { computeLayout } from '../lib/layout'
 import { computeConnections, NODE_WIDTH, NODE_HEIGHT } from '../lib/connections'
@@ -47,7 +48,7 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
     if (!containerRef.current) return
     const behavior = d3zoom<HTMLDivElement, unknown>()
       .scaleExtent([0.15, 2.5])
-      .on('zoom', (event) => setTransform(event.transform))
+      .on('zoom', (event: D3ZoomEvent<HTMLDivElement, unknown>) => setTransform(event.transform))
     zoomBehaviorRef.current = behavior
     select(containerRef.current).call(behavior)
     // initial: fit to content

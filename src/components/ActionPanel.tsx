@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<PendingActionType, string> = {
   'add-child': 'Çocuk ekle',
   'edit-note': 'Not güncelle',
   'edit-birthdate': 'Doğum tarihi güncelle',
+  'link-spouse': 'Mevcut kişiyle eşleştir',
 }
 
 function formatBirthDate(value?: string): string {
