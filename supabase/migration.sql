@@ -57,6 +57,7 @@ create table public.people (
   spouse_ids text[] not null default '{}',
   note text not null default '',
   birth_date date,
+  death_date date,
   photo_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -98,6 +99,7 @@ create table public.pending_actions (
   other_parent_id text,
   note_value text,
   birth_date_value date,
+  death_date_value date,
   target_person_id text,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected'))
 );

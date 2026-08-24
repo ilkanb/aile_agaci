@@ -65,7 +65,9 @@ export function AdminBar() {
                 ? `${anchor?.name ?? '?'} için not güncellemesi: "${action.noteValue}"`
                 : action.type === 'edit-birthdate'
                   ? `${anchor?.name ?? '?'} için doğum tarihi güncellemesi: "${action.birthDateValue}"`
-                  : action.type === 'link-spouse'
+                  : action.type === 'edit-deathdate'
+                    ? `${anchor?.name ?? '?'} için ölüm tarihi güncellemesi: "${action.deathDateValue}"`
+                    : action.type === 'link-spouse'
                     ? `${anchor?.name ?? '?'} ile ${target?.name ?? '?'} eşleştirilsin`
                     : `${action.newPerson?.name} — ${anchor?.name ?? '?'} için ${ACTION_TEXT[action.type]}`
             return (

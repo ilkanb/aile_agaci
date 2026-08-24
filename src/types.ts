@@ -10,6 +10,8 @@ export interface Person {
   note: string
   // ISO date string (yyyy-mm-dd), optional — enables older/younger sibling wording
   birthDate?: string
+  // ISO date string (yyyy-mm-dd), optional
+  deathDate?: string
   photoUrl?: string
 }
 
@@ -21,6 +23,7 @@ export type PendingActionType =
   | 'add-child'
   | 'edit-note'
   | 'edit-birthdate'
+  | 'edit-deathdate'
   | 'link-spouse'
 
 export interface PendingAction {
@@ -40,6 +43,8 @@ export interface PendingAction {
   noteValue?: string
   // For edit-birthdate: the proposed new birth date (empty string clears it)
   birthDateValue?: string
+  // For edit-deathdate: the proposed new death date (empty string clears it)
+  deathDateValue?: string
   // For link-spouse: the id of the already-existing person to link as a spouse
   targetPersonId?: string
   status: 'pending' | 'approved' | 'rejected'

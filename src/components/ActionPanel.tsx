@@ -25,11 +25,19 @@ const ACTION_LABELS: Record<PendingActionType, string> = {
   'add-child': 'Çocuk ekle',
   'edit-note': 'Not güncelle',
   'edit-birthdate': 'Doğum tarihi güncelle',
+  'edit-deathdate': 'Ölüm tarihi güncelle',
   'link-spouse': 'Mevcut kişiyle eşleştir',
 }
 
 function formatBirthDate(value?: string): string {
   if (!value) return 'Doğum tarihi eklemek için tıkla...'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+function formatDeathDate(value?: string): string {
+  if (!value) return 'Ölüm tarihi eklemek için tıkla...'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -44,12 +52,15 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
   const [gender, setGender] = useState<Gender>('?')
   const [note, setNote] = useState('')
   const [birthDate, setBirthDate] = useState('')
+  const [deathDate, setDeathDate] = useState('')
   const [sharedParent, setSharedParent] = useState<'mother' | 'father' | 'both'>('both')
   const [otherParentId, setOtherParentId] = useState<string>('')
   const [editingNote, setEditingNote] = useState(false)
   const [noteDraft, setNoteDraft] = useState(person.note)
   const [editingBirthDate, setEditingBirthDate] = useState(false)
   const [birthDateDraft, setBirthDateDraft] = useState(person.birthDate ?? '')
+  const [editingDeathDate, setEditingDeathDate] = useState(false)
+  const [deathDateDraft, setDeathDateDraft] = useState(person.deathDate ?? '')
 
   const parents = getParents(person, people)
   const spouses = getSpouses(person, people)
@@ -62,6 +73,7 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
     setGender('?')
     setNote('')
     setBirthDate('')
+    setDeathDate('')
     setSharedParent('both')
     setOtherParentId('')
   }
@@ -79,6 +91,7 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         spouseIds: [],
         note,
         birthDate: birthDate || undefined,
+        deathDate: deathDate || undefined,
       },
       sharedParent: formKind === 'add-sibling' ? sharedParent : undefined,
       otherParentId: formKind === 'add-child' ? (otherParentId || null) : undefined,
@@ -108,6 +121,17 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
       autoApprove: canApprove,
     })
     setEditingBirthDate(false)
+  }
+
+  function saveDeathDate() {
+    submitAction({
+      type: 'edit-deathdate',
+      anchorPersonId: person.id,
+      deathDateValue: deathDateDraft,
+      createdBy: username,
+      autoApprove: canApprove,
+    })
+    setEditingDeathDate(false)
   }
 
   return (
@@ -157,6 +181,19 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         </div>
       )}
 
+      {editingDeathDate ? (
+        <div className="note-row">
+          <input type="date" value={deathDateDraft} onChange={(e) => setDeathDateDraft(e.target.value)} />
+          <button className="primary-btn" onClick={saveDeathDate}>
+            {canApprove ? 'Kaydet' : 'Onaya gönder'}
+          </button>
+        </div>
+      ) : (
+        <div className="note-display" onClick={() => setEditingDeathDate(true)}>
+          {formatDeathDate(person.deathDate)}
+        </div>
+      )}
+
       <div className="action-buttons">
         {!hasMother && (
           <button className="ghost-btn" onClick={() => setFormKind('add-mother')}>+ Anne</button>
@@ -197,6 +234,10 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
           <label className="field-label">
             Doğum tarihi (opsiyonel)
             <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+          </label>
+          <label className="field-label">
+            Ölüm tarihi (opsiyonel)
+            <input type="date" value={deathDate} onChange={(e) => setDeathDate(e.target.value)} />
           </label>
 
           {formKind === 'add-sibling' && (

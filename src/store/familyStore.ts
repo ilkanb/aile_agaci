@@ -12,6 +12,7 @@ interface PersonRow {
   spouse_ids: string[]
   note: string
   birth_date: string | null
+  death_date: string | null
   photo_url: string | null
 }
 
@@ -25,6 +26,7 @@ function rowToPerson(row: PersonRow): Person {
     spouseIds: row.spouse_ids ?? [],
     note: row.note ?? '',
     birthDate: row.birth_date ?? undefined,
+    deathDate: row.death_date ?? undefined,
     photoUrl: row.photo_url ?? undefined,
   }
 }
@@ -39,6 +41,7 @@ function personToInsertRow(id: string, person: Omit<Person, 'id'>) {
     spouse_ids: person.spouseIds,
     note: person.note,
     birth_date: person.birthDate || null,
+    death_date: person.deathDate || null,
     photo_url: person.photoUrl ?? null,
   }
 }
@@ -54,6 +57,7 @@ interface PendingRow {
   other_parent_id: string | null
   note_value: string | null
   birth_date_value: string | null
+  death_date_value: string | null
   target_person_id: string | null
   status: 'pending' | 'approved' | 'rejected'
 }
@@ -70,6 +74,7 @@ function rowToPending(row: PendingRow): PendingAction {
     otherParentId: row.other_parent_id,
     noteValue: row.note_value ?? undefined,
     birthDateValue: row.birth_date_value ?? undefined,
+    deathDateValue: row.death_date_value ?? undefined,
     targetPersonId: row.target_person_id ?? undefined,
     status: row.status,
   }
@@ -86,8 +91,27 @@ function pendingToInsertRow(action: PendingAction) {
     other_parent_id: action.otherParentId ?? null,
     note_value: action.noteValue ?? null,
     birth_date_value: action.birthDateValue || null,
+    death_date_value: action.deathDateValue || null,
     target_person_id: action.targetPersonId ?? null,
     status: action.status,
+  }
+}
+
+// If a person had no spouse before and this is their only one, they're
+// unambiguously each existing child's other parent — fill in whichever
+// parent slot is still empty on those children. Skipped for anyone with
+// more than one spouse, since which marriage a child belongs to would be a
+// guess at that point.
+async function autoFillChildrenOtherParent(people: Record<string, Person>, parentId: string, spouseId: string) {
+  const parent = people[parentId]
+  if (!parent || parent.spouseIds.length !== 0) return
+  const children = Object.values(people).filter((p) => p.motherId === parentId || p.fatherId === parentId)
+  for (const child of children) {
+    if (child.motherId === parentId && !child.fatherId) {
+      await supabase.from('people').update({ father_id: spouseId }).eq('id', child.id)
+    } else if (child.fatherId === parentId && !child.motherId) {
+      await supabase.from('people').update({ mother_id: spouseId }).eq('id', child.id)
+    }
   }
 }
 
@@ -107,6 +131,10 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
     await supabase.from('people').update({ birth_date: action.birthDateValue || null }).eq('id', action.anchorPersonId)
     return
   }
+  if (action.type === 'edit-deathdate') {
+    await supabase.from('people').update({ death_date: action.deathDateValue || null }).eq('id', action.anchorPersonId)
+    return
+  }
   if (action.type === 'link-spouse') {
     const targetId = action.targetPersonId
     const target = targetId ? people[targetId] : undefined
@@ -123,6 +151,8 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
         .update({ spouse_ids: [...target.spouseIds, action.anchorPersonId] })
         .eq('id', targetId)
     }
+    await autoFillChildrenOtherParent(people, action.anchorPersonId, targetId)
+    await autoFillChildrenOtherParent(people, targetId, action.anchorPersonId)
     return
   }
 
@@ -149,6 +179,7 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
         .from('people')
         .update({ spouse_ids: [...anchor.spouseIds, newId] })
         .eq('id', action.anchorPersonId)
+      await autoFillChildrenOtherParent(people, action.anchorPersonId, newId)
       break
     }
     case 'add-sibling': {
@@ -217,6 +248,7 @@ interface FamilyStore extends FamilyState {
     otherParentId?: string | null
     noteValue?: string
     birthDateValue?: string
+    deathDateValue?: string
     targetPersonId?: string
     createdBy: string
     autoApprove: boolean
@@ -300,6 +332,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
       otherParentId: input.otherParentId,
       noteValue: input.noteValue,
       birthDateValue: input.birthDateValue,
+      deathDateValue: input.deathDateValue,
       targetPersonId: input.targetPersonId,
       status: input.autoApprove ? 'approved' : 'pending',
     }
@@ -331,6 +364,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
     if (patch.spouseIds !== undefined) row.spouse_ids = patch.spouseIds
     if (patch.note !== undefined) row.note = patch.note
     if (patch.birthDate !== undefined) row.birth_date = patch.birthDate || null
+    if (patch.deathDate !== undefined) row.death_date = patch.deathDate || null
     if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl
     await supabase.from('people').update(row).eq('id', id)
   },
