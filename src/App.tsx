@@ -5,6 +5,7 @@ import { SearchBox } from './components/SearchBox'
 import { AdminBar } from './components/AdminBar'
 import { ActionPanel } from './components/ActionPanel'
 import { LoginScreen } from './components/LoginScreen'
+import { EmptyTreeState } from './components/EmptyTreeState'
 import { useFamilyStore } from './store/familyStore'
 import { useAuthStore, canApprove } from './store/authStore'
 
@@ -37,6 +38,20 @@ function App() {
   if (!authReady) return null
   if (!currentUser) return <LoginScreen />
   if (!familyReady) return null
+
+  if (Object.keys(people).length === 0) {
+    if (!canApprove(currentUser)) {
+      return (
+        <div className="login-screen">
+          <div className="login-card">
+            <div className="brand" style={{ marginBottom: 8 }}>Ağaç henüz boş</div>
+            <div className="login-hint">Bir yöneticiden ilk kişiyi eklemesini iste.</div>
+          </div>
+        </div>
+      )
+    }
+    return <EmptyTreeState onCreated={focusPerson} />
+  }
 
   const selectedPerson = selectedPersonId ? people[selectedPersonId] : null
   const egoFocalPerson = egoFocalId ? people[egoFocalId] : null

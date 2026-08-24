@@ -192,6 +192,7 @@ interface FamilyStore extends FamilyState {
   }) => Promise<void>
   approveAction: (actionId: string) => Promise<void>
   rejectAction: (actionId: string) => Promise<void>
+  addRootPerson: (person: Omit<Person, 'id'>) => Promise<string>
   updatePerson: (id: string, patch: Partial<Person>) => Promise<void>
   deletePerson: (id: string) => Promise<void>
 }
@@ -249,6 +250,12 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
   },
 
   select: (id) => set({ selectedPersonId: id }),
+
+  addRootPerson: async (person) => {
+    const id = nanoid(8)
+    await supabase.from('people').insert(personToInsertRow(id, person))
+    return id
+  },
 
   submitAction: async (input) => {
     const action: PendingAction = {
