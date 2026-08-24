@@ -153,8 +153,39 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
     }
     case 'add-sibling': {
       const shared = action.sharedParent ?? 'both'
-      const motherId = shared === 'mother' || shared === 'both' ? anchor.motherId : null
-      const fatherId = shared === 'father' || shared === 'both' ? anchor.fatherId : null
+      const anchorUpdates: Record<string, string> = {}
+      let motherId: string | null = null
+      let fatherId: string | null = null
+
+      // Siblinghood is never stored directly — it's derived purely from a
+      // shared motherId/fatherId. If the anchor has no recorded parent on the
+      // shared side yet, the new sibling would get null there too, and two
+      // nulls never count as "shared" — so a placeholder parent is created
+      // for both of them to point to, keeping the relation real going forward.
+      if (shared === 'mother' || shared === 'both') {
+        motherId = anchor.motherId
+        if (!motherId) {
+          motherId = nanoid(8)
+          await supabase
+            .from('people')
+            .insert(personToInsertRow(motherId, { name: 'Bilinmeyen', gender: 'K', motherId: null, fatherId: null, spouseIds: [], note: '' }))
+          anchorUpdates.mother_id = motherId
+        }
+      }
+      if (shared === 'father' || shared === 'both') {
+        fatherId = anchor.fatherId
+        if (!fatherId) {
+          fatherId = nanoid(8)
+          await supabase
+            .from('people')
+            .insert(personToInsertRow(fatherId, { name: 'Bilinmeyen', gender: 'E', motherId: null, fatherId: null, spouseIds: [], note: '' }))
+          anchorUpdates.father_id = fatherId
+        }
+      }
+
+      if (Object.keys(anchorUpdates).length > 0) {
+        await supabase.from('people').update(anchorUpdates).eq('id', action.anchorPersonId)
+      }
       await supabase
         .from('people')
         .insert(personToInsertRow(newId, { ...created, motherId, fatherId, spouseIds: [] }))

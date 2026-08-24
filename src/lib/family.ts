@@ -67,24 +67,38 @@ export function computeDepths(people: Record<string, Person>): Record<string, nu
 
   for (const id of ids) depthOf(id)
 
-  // Pull spouses onto the same row as their partner (take the max of the pair),
-  // iterating until stable since chains of remarriage can cascade.
+  // Shifting one spouse to match the other must drag their WHOLE ancestor chain
+  // along by the same amount — otherwise a shallowly-recorded side (fewer known
+  // generations) ends up with its parents on a different row than the other
+  // spouse's parents, even though marriage should keep both families' rows
+  // aligned generation-by-generation.
+  function shiftAncestorsBy(id: string, delta: number, seen: Set<string>) {
+    if (seen.has(id)) return
+    seen.add(id)
+    depths[id] += delta
+    const person = people[id]
+    if (person.motherId && people[person.motherId]) shiftAncestorsBy(person.motherId, delta, seen)
+    if (person.fatherId && people[person.fatherId]) shiftAncestorsBy(person.fatherId, delta, seen)
+  }
+
+  // Repeatedly align spouse pairs until a full pass makes no more changes —
+  // shifting one couple's ancestors can reveal a new mismatch further up a
+  // remarriage chain, so this needs to reach a fixed point, not just one pass.
   let changed = true
-  while (changed) {
+  let safety = 0
+  while (changed && safety < 200) {
     changed = false
+    safety += 1
     for (const id of ids) {
       const person = people[id]
       for (const spouseId of person.spouseIds) {
         if (!people[spouseId]) continue
-        const target = Math.max(depths[id], depths[spouseId])
-        if (depths[id] !== target) {
-          depths[id] = target
-          changed = true
-        }
-        if (depths[spouseId] !== target) {
-          depths[spouseId] = target
-          changed = true
-        }
+        const a = depths[id]
+        const b = depths[spouseId]
+        if (a === b) continue
+        changed = true
+        if (a < b) shiftAncestorsBy(id, b - a, new Set())
+        else shiftAncestorsBy(spouseId, a - b, new Set())
       }
     }
   }
