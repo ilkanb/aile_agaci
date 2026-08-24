@@ -144,17 +144,21 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
           }}
           viewBox={`${bounds.minX} ${bounds.minY} ${bounds.maxX - bounds.minX} ${bounds.maxY - bounds.minY}`}
         >
-          {connections.map((c) => (
-            <path
-              key={c.id}
-              d={c.d}
-              fill="none"
-              stroke={c.kind === 'spouse' ? 'var(--gold-soft)' : 'var(--text-dim)'}
-              strokeWidth={c.kind === 'spouse' ? 2 : 1.5}
-              strokeDasharray={c.kind === 'spouse' ? '4 3' : undefined}
-              opacity={0.75}
-            />
-          ))}
+          {connections.map((c) => {
+            const isHighlighted = Boolean(selectedId) && c.touches.includes(selectedId!)
+            const isDimmed = Boolean(selectedId) && !isHighlighted
+            return (
+              <path
+                key={c.id}
+                d={c.d}
+                fill="none"
+                stroke={isHighlighted ? 'var(--gold)' : c.kind === 'spouse' ? 'var(--gold-soft)' : 'var(--text-dim)'}
+                strokeWidth={isHighlighted ? 2.5 : c.kind === 'spouse' ? 2 : 1.5}
+                strokeDasharray={c.kind === 'spouse' && !isHighlighted ? '4 3' : undefined}
+                opacity={isDimmed ? 0.2 : isHighlighted ? 1 : 0.75}
+              />
+            )
+          })}
         </svg>
         {Object.values(layout.nodes).map((node) => (
           <PersonNode

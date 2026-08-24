@@ -8,6 +8,11 @@ export interface ConnectionPath {
   id: string
   d: string
   kind: 'parent-child' | 'spouse'
+  // Person ids this segment is directly relevant to — lets the map highlight
+  // just the selected person's own lines and fade the rest, since dense rows
+  // (several unrelated marriages sharing a generation) otherwise read as one
+  // tangled mess of overlapping bus lines.
+  touches: string[]
 }
 
 function centerX(layout: Layout, id: string): number {
@@ -26,7 +31,12 @@ export function computeConnections(layout: Layout, people: Record<string, Person
     const y = a.y + NODE_HEIGHT / 2
     const x1 = Math.min(a.x, b.x) + NODE_WIDTH
     const x2 = Math.max(a.x, b.x)
-    paths.push({ id: `spouse-${edge.from}-${edge.to}`, kind: 'spouse', d: `M${x1},${y} L${x2},${y}` })
+    paths.push({
+      id: `spouse-${edge.from}-${edge.to}`,
+      kind: 'spouse',
+      d: `M${x1},${y} L${x2},${y}`,
+      touches: [edge.from, edge.to],
+    })
   }
 
   // Parent-child: group children by their exact parent pair so siblings share one drop line
@@ -62,7 +72,7 @@ export function computeConnections(layout: Layout, people: Record<string, Person
       d += ` M${cx},${busY} L${cx},${layout.nodes[cid].y}`
     }
 
-    paths.push({ id: `pc-${key}`, kind: 'parent-child', d })
+    paths.push({ id: `pc-${key}`, kind: 'parent-child', d, touches: [...parentIds, ...group.children] })
   }
 
   return paths
