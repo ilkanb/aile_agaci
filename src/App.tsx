@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { FamilyMap, type FamilyMapHandle } from './components/FamilyMap'
 import { MapControls } from './components/MapControls'
 import { SearchBox } from './components/SearchBox'
@@ -15,6 +15,8 @@ function App() {
   const selectedPersonId = useFamilyStore((s) => s.selectedPersonId)
   const select = useFamilyStore((s) => s.select)
 
+  const [egoFocalId, setEgoFocalId] = useState<string | null>(null)
+
   const mapRef = useRef<FamilyMapHandle>(null)
 
   function focusPerson(id: string) {
@@ -25,16 +27,32 @@ function App() {
   if (!currentUser) return <LoginScreen />
 
   const selectedPerson = selectedPersonId ? people[selectedPersonId] : null
+  const egoFocalPerson = egoFocalId ? people[egoFocalId] : null
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <FamilyMap ref={mapRef} people={people} selectedId={selectedPersonId} onSelect={focusPerson} />
+      <FamilyMap
+        ref={mapRef}
+        people={people}
+        selectedId={selectedPersonId}
+        onSelect={focusPerson}
+        egoFocalId={egoFocalId}
+      />
 
       <div className="top-bar">
         <div className="brand">Aile Ağacı</div>
         <SearchBox people={people} onPick={focusPerson} />
+        {egoFocalPerson && (
+          <button className="ghost-btn" onClick={() => setEgoFocalId(null)}>
+            Tüm Ağacı Göster
+          </button>
+        )}
         <AdminBar />
       </div>
+
+      {egoFocalPerson && (
+        <div className="ego-banner">Merkez: {egoFocalPerson.name}</div>
+      )}
 
       <MapControls
         onZoomIn={() => mapRef.current?.zoomBy(1.4)}
@@ -51,6 +69,7 @@ function App() {
           canApprove={canApprove(currentUser)}
           onClose={() => select(null)}
           onDeleted={() => select(null)}
+          onCenterOn={(id) => setEgoFocalId(id)}
         />
       )}
     </div>

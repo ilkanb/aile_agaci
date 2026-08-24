@@ -12,6 +12,7 @@ interface Props {
   canApprove: boolean
   onClose: () => void
   onDeleted: () => void
+  onCenterOn: (id: string) => void
 }
 
 type FormKind = PendingActionType | null
@@ -34,7 +35,7 @@ function formatBirthDate(value?: string): string {
   return d.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export function ActionPanel({ person, people, username, canApprove, onClose, onDeleted }: Props) {
+export function ActionPanel({ person, people, username, canApprove, onClose, onDeleted, onCenterOn }: Props) {
   const submitAction = useFamilyStore((s) => s.submitAction)
   const deletePerson = useFamilyStore((s) => s.deletePerson)
 
@@ -121,6 +122,10 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         </div>
         <button className="ghost-btn" onClick={onClose}>Kapat</button>
       </div>
+
+      <button className="ghost-btn center-on-btn" onClick={() => onCenterOn(person.id)}>
+        ◎ Merkeze Al
+      </button>
 
       {editingNote ? (
         <div className="note-row">

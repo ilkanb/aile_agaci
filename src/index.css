@@ -332,6 +332,26 @@ select {
   max-width: 360px;
 }
 
+.center-on-btn {
+  margin-bottom: 12px;
+  border-color: var(--gold);
+  color: var(--gold-soft);
+}
+
+.ego-banner {
+  position: absolute;
+  top: 68px;
+  left: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--gold);
+  color: var(--gold-soft);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: var(--font-serif);
+  z-index: 10;
+}
+
 .relation-finder-result {
   background: var(--bg);
   border: 1px solid var(--gold);

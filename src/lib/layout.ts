@@ -21,8 +21,8 @@ export interface Layout {
   colWidth: number
 }
 
-const ROW_HEIGHT = 160
-const COL_WIDTH = 140
+export const ROW_HEIGHT = 160
+export const COL_WIDTH = 140
 
 export function computeLayout(people: Record<string, Person>): Layout {
   const depths = computeDepths(people)

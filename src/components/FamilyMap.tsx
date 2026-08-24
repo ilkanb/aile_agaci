@@ -4,6 +4,7 @@ import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior, type
 import 'd3-transition'
 import type { Person } from '../types'
 import { computeLayout } from '../lib/layout'
+import { computeEgoLayout } from '../lib/egoLayout'
 import { computeConnections, NODE_WIDTH, NODE_HEIGHT } from '../lib/connections'
 import { PersonNode, type Lod } from './PersonNode'
 
@@ -11,6 +12,7 @@ interface Props {
   people: Record<string, Person>
   selectedId: string | null
   onSelect: (id: string) => void
+  egoFocalId?: string | null
 }
 
 export interface FamilyMapHandle {
@@ -25,12 +27,15 @@ function lodFor(k: number): Lod {
   return 'card'
 }
 
-export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({ people, selectedId, onSelect }, ref) {
+export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({ people, selectedId, onSelect, egoFocalId }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomBehaviorRef = useRef<ZoomBehavior<HTMLDivElement, unknown> | null>(null)
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity)
 
-  const layout = useMemo(() => computeLayout(people), [people])
+  const layout = useMemo(
+    () => (egoFocalId ? computeEgoLayout(people, egoFocalId) : computeLayout(people)),
+    [people, egoFocalId]
+  )
   const connections = useMemo(() => computeConnections(layout, people), [layout, people])
 
   const bounds = useMemo(() => {
@@ -44,6 +49,23 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
     }
   }, [layout])
 
+  function fitToBounds(animated: boolean) {
+    const el = containerRef.current
+    const behavior = zoomBehaviorRef.current
+    if (!el || !behavior) return
+    const w = el.clientWidth
+    const h = el.clientHeight
+    const contentW = bounds.maxX - bounds.minX
+    const contentH = bounds.maxY - bounds.minY
+    const k = Math.min(1, Math.min(w / contentW, h / contentH))
+    const next = zoomIdentity
+      .translate(w / 2 - ((bounds.minX + bounds.maxX) / 2) * k, h / 2 - ((bounds.minY + bounds.maxY) / 2) * k)
+      .scale(k)
+    const selection = select(el)
+    if (animated) selection.transition().duration(400).call(behavior.transform, next)
+    else selection.call(behavior.transform, next)
+  }
+
   useEffect(() => {
     if (!containerRef.current) return
     const behavior = d3zoom<HTMLDivElement, unknown>()
@@ -51,19 +73,17 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
       .on('zoom', (event: D3ZoomEvent<HTMLDivElement, unknown>) => setTransform(event.transform))
     zoomBehaviorRef.current = behavior
     select(containerRef.current).call(behavior)
-    // initial: fit to content
-    const el = containerRef.current
-    const w = el.clientWidth
-    const h = el.clientHeight
-    const contentW = bounds.maxX - bounds.minX
-    const contentH = bounds.maxY - bounds.minY
-    const k = Math.min(1, Math.min(w / contentW, h / contentH))
-    const initial = zoomIdentity
-      .translate(w / 2 - ((bounds.minX + bounds.maxX) / 2) * k, h / 2 - ((bounds.minY + bounds.maxY) / 2) * k)
-      .scale(k)
-    select(el).call(behavior.transform, initial)
+    fitToBounds(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Re-fit whenever the ego-centered focal person changes (including
+  // entering/leaving ego mode), since the layout's bounds shift completely.
+  useEffect(() => {
+    if (!zoomBehaviorRef.current) return
+    fitToBounds(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [egoFocalId])
 
   useImperativeHandle(ref, () => ({
     focusOn(id: string) {
@@ -80,18 +100,7 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
       select(el).transition().duration(400).call(behavior.transform, next)
     },
     fit() {
-      const el = containerRef.current
-      const behavior = zoomBehaviorRef.current
-      if (!el || !behavior) return
-      const w = el.clientWidth
-      const h = el.clientHeight
-      const contentW = bounds.maxX - bounds.minX
-      const contentH = bounds.maxY - bounds.minY
-      const k = Math.min(1, Math.min(w / contentW, h / contentH))
-      const next = zoomIdentity
-        .translate(w / 2 - ((bounds.minX + bounds.maxX) / 2) * k, h / 2 - ((bounds.minY + bounds.maxY) / 2) * k)
-        .scale(k)
-      select(el).transition().duration(400).call(behavior.transform, next)
+      fitToBounds(true)
     },
     zoomBy(factor: number) {
       const el = containerRef.current
