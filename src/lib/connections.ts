@@ -22,57 +22,46 @@ function centerX(layout: Layout, id: string): number {
 export function computeConnections(layout: Layout, people: Record<string, Person>): ConnectionPath[] {
   const paths: ConnectionPath[] = []
 
-  // Spouse lines: straight horizontal segment between the two boxes
+  // Spouse lines: straight segment between the two boxes' vertical centers —
+  // not always perfectly horizontal now that Y is chronological rather than
+  // generation-locked (spouses can have different birth years).
   for (const edge of layout.edges) {
     if (edge.kind !== 'spouse') continue
     const a = layout.nodes[edge.from]
     const b = layout.nodes[edge.to]
     if (!a || !b) continue
-    const y = a.y + NODE_HEIGHT / 2
-    const x1 = Math.min(a.x, b.x) + NODE_WIDTH
-    const x2 = Math.max(a.x, b.x)
+    const ay = a.y + NODE_HEIGHT / 2
+    const by = b.y + NODE_HEIGHT / 2
+    const aOnLeft = a.x <= b.x
+    const ax = aOnLeft ? a.x + NODE_WIDTH : a.x
+    const bx = aOnLeft ? b.x : b.x + NODE_WIDTH
     paths.push({
       id: `spouse-${edge.from}-${edge.to}`,
       kind: 'spouse',
-      d: `M${x1},${y} L${x2},${y}`,
+      d: `M${ax},${ay} L${bx},${by}`,
       touches: [edge.from, edge.to],
     })
   }
 
-  // Parent-child: group children by their exact parent pair so siblings share one drop line
-  const groups = new Map<string, { motherId: string | null; fatherId: string | null; children: string[] }>()
+  // Parent-child: each relationship gets its own independent elbow line
+  // (parent bottom -> midpoint -> child top). Y is chronological now, so
+  // siblings no longer share one clean row to hang a single bus line off —
+  // routing each edge independently keeps every connection correct even
+  // when siblings' birth years spread them out vertically.
   for (const person of Object.values(people)) {
-    if (!person.motherId && !person.fatherId) continue
     if (!layout.nodes[person.id]) continue
-    const key = `${person.motherId ?? '-'}|${person.fatherId ?? '-'}`
-    if (!groups.has(key)) groups.set(key, { motherId: person.motherId, fatherId: person.fatherId, children: [] })
-    groups.get(key)!.children.push(person.id)
-  }
-
-  for (const [key, group] of groups) {
-    const parentIds = [group.motherId, group.fatherId].filter(
-      (pid): pid is string => Boolean(pid) && Boolean(layout.nodes[pid as string])
-    )
-    if (parentIds.length === 0) continue
-
-    const parentXs = parentIds.map((pid) => centerX(layout, pid))
-    const parentAnchorX = parentXs.reduce((a, b) => a + b, 0) / parentXs.length
-    const parentY = Math.max(...parentIds.map((pid) => layout.nodes[pid].y)) + NODE_HEIGHT
-
-    const childXs = group.children.map((cid) => centerX(layout, cid))
-    const childTopY = Math.min(...group.children.map((cid) => layout.nodes[cid].y))
-    const busY = parentY + (childTopY - parentY) / 2
-
-    const busMinX = Math.min(parentAnchorX, ...childXs)
-    const busMaxX = Math.max(parentAnchorX, ...childXs)
-
-    let d = `M${parentAnchorX},${parentY} L${parentAnchorX},${busY} M${busMinX},${busY} L${busMaxX},${busY}`
-    for (const cid of group.children) {
-      const cx = centerX(layout, cid)
-      d += ` M${cx},${busY} L${cx},${layout.nodes[cid].y}`
+    for (const parentId of [person.motherId, person.fatherId]) {
+      if (!parentId || !layout.nodes[parentId]) continue
+      const parent = layout.nodes[parentId]
+      const child = layout.nodes[person.id]
+      const parentX = centerX(layout, parentId)
+      const childX = centerX(layout, person.id)
+      const parentBottomY = parent.y + NODE_HEIGHT
+      const childTopY = child.y
+      const midY = parentBottomY + (childTopY - parentBottomY) / 2
+      const d = `M${parentX},${parentBottomY} L${parentX},${midY} L${childX},${midY} L${childX},${childTopY}`
+      paths.push({ id: `pc-${parentId}-${person.id}`, kind: 'parent-child', d, touches: [parentId, person.id] })
     }
-
-    paths.push({ id: `pc-${key}`, kind: 'parent-child', d, touches: [...parentIds, ...group.children] })
   }
 
   return paths
