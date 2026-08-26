@@ -228,17 +228,47 @@ export function computeLayout(people: Record<string, Person>): Layout {
   // years apart in age) never get compared against each other there, so
   // close-but-different-band pairs can still end up visually overlapping —
   // catch those here regardless of band boundaries.
+  //
+  // Separately, two unrelated (or indirectly related, e.g. siblings whose
+  // birth years pulled them apart) people can coincidentally land on the
+  // exact same X purely because each band's own centering pass starts
+  // counting from 0 independently — with a vertical connector line running
+  // through that shared column, it reads as if one is stacked directly on
+  // the other. A wider, gentler pass nudges those apart too, skipping actual
+  // parent-child pairs since being vertically aligned is correct for them.
   const NODE_BOX_HEIGHT = 72
+  const STACK_AVOID_Y = 420
+  const isParentChild = (a: string, b: string) =>
+    people[a].motherId === b || people[a].fatherId === b || people[b].motherId === a || people[b].fatherId === a
+
   const orderedByY = ids.slice().sort((a, b) => nodes[a].y - nodes[b].y)
-  for (let i = 0; i < orderedByY.length; i++) {
-    const id = orderedByY[i]
-    for (let j = i - 1; j >= 0; j--) {
-      const otherId = orderedByY[j]
-      if (nodes[id].y - nodes[otherId].y >= NODE_BOX_HEIGHT) break
-      if (Math.abs(nodes[id].x - nodes[otherId].x) < COL_WIDTH) {
-        nodes[id].x = nodes[otherId].x + COL_WIDTH
+  // Resolving one pair can reopen a conflict with a third node (or vice
+  // versa) — repeat until a full pass makes no more changes instead of
+  // trusting a single pass to reach a consistent layout.
+  for (let pass = 0; pass < 40; pass++) {
+    let changed = false
+    for (let i = 0; i < orderedByY.length; i++) {
+      const id = orderedByY[i]
+      for (let j = i - 1; j >= 0; j--) {
+        const otherId = orderedByY[j]
+        const dy = nodes[id].y - nodes[otherId].y
+        if (dy >= STACK_AVOID_Y) break
+        const withinTightRange = dy < NODE_BOX_HEIGHT
+        if (!withinTightRange && isParentChild(id, otherId)) continue
+        const minDx = withinTightRange ? COL_WIDTH : COL_WIDTH / 2
+        const dx = Math.abs(nodes[id].x - nodes[otherId].x)
+        // Always push id right of otherId (never left) when resolving a
+        // conflict — a bidirectional push here can oscillate indefinitely
+        // when two different pairs keep shoving the same node back and
+        // forth. One-directional pushes only ever increase x, which is
+        // guaranteed to converge instead.
+        if (dx < minDx) {
+          nodes[id].x = nodes[otherId].x + minDx
+          changed = true
+        }
       }
     }
+    if (!changed) break
   }
 
   const edges: LayoutEdge[] = []
