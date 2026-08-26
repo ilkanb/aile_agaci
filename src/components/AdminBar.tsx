@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useFamilyStore } from '../store/familyStore'
 import { useAuthStore, canApprove } from '../store/authStore'
-import type { Role } from '../types'
+import type { Person, PendingAction, Role } from '../types'
 
 const ACTION_TEXT: Record<string, string> = {
   'add-mother': 'anne olarak',
@@ -9,12 +9,32 @@ const ACTION_TEXT: Record<string, string> = {
   'add-sibling': 'kardeş olarak',
   'add-spouse': 'eş olarak',
   'add-child': 'çocuk olarak',
-  'edit-note': 'not güncellemesi olarak',
 }
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Yönetici (admin)',
   member: 'Üye',
+}
+
+const PARENT_SLOT_LABEL = { mother: 'anne', father: 'baba' } as const
+
+function describePendingAction(action: PendingAction, people: Record<string, Person>): string {
+  const anchor = people[action.anchorPersonId]
+  const target = action.targetPersonId ? people[action.targetPersonId] : undefined
+  switch (action.type) {
+    case 'edit-note':
+      return `${anchor?.name ?? '?'} için not güncellemesi: "${action.noteValue}"`
+    case 'edit-birthdate':
+      return `${anchor?.name ?? '?'} için doğum tarihi güncellemesi: "${action.birthDateValue}"`
+    case 'edit-deathdate':
+      return `${anchor?.name ?? '?'} için ölüm tarihi güncellemesi: "${action.deathDateValue}"`
+    case 'link-spouse':
+      return `${anchor?.name ?? '?'} ile ${target?.name ?? '?'} eşleştirilsin`
+    case 'link-parent':
+      return `${target?.name ?? '?'}, ${anchor?.name ?? '?'} için ${PARENT_SLOT_LABEL[action.parentSlot ?? 'mother']} olarak bağlansın`
+    default:
+      return `${action.newPerson?.name} — ${anchor?.name ?? '?'} için ${ACTION_TEXT[action.type]}`
+  }
 }
 
 export function AdminBar() {
@@ -58,18 +78,7 @@ export function AdminBar() {
         <div className="popover pending-list">
           {pending.length === 0 && <div>Bekleyen yok</div>}
           {pending.map((action) => {
-            const anchor = people[action.anchorPersonId]
-            const target = action.targetPersonId ? people[action.targetPersonId] : undefined
-            const label =
-              action.type === 'edit-note'
-                ? `${anchor?.name ?? '?'} için not güncellemesi: "${action.noteValue}"`
-                : action.type === 'edit-birthdate'
-                  ? `${anchor?.name ?? '?'} için doğum tarihi güncellemesi: "${action.birthDateValue}"`
-                  : action.type === 'edit-deathdate'
-                    ? `${anchor?.name ?? '?'} için ölüm tarihi güncellemesi: "${action.deathDateValue}"`
-                    : action.type === 'link-spouse'
-                    ? `${anchor?.name ?? '?'} ile ${target?.name ?? '?'} eşleştirilsin`
-                    : `${action.newPerson?.name} — ${anchor?.name ?? '?'} için ${ACTION_TEXT[action.type]}`
+            const label = describePendingAction(action, people)
             return (
               <div key={action.id} className="pending-item">
                 <div>

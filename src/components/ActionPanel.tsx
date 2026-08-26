@@ -4,6 +4,7 @@ import { getParents, getSpouses } from '../lib/family'
 import { useFamilyStore } from '../store/familyStore'
 import { RelationFinder } from './RelationFinder'
 import { LinkSpouse } from './LinkSpouse'
+import { LinkParent } from './LinkParent'
 
 interface Props {
   person: Person
@@ -27,6 +28,7 @@ const ACTION_LABELS: Record<PendingActionType, string> = {
   'edit-birthdate': 'Doğum tarihi güncelle',
   'edit-deathdate': 'Ölüm tarihi güncelle',
   'link-spouse': 'Mevcut kişiyle eşleştir',
+  'link-parent': 'Mevcut kişiyi ebeveyn olarak bağla',
 }
 
 function formatBirthDate(value?: string): string {
@@ -198,8 +200,14 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         {!hasMother && (
           <button className="ghost-btn" onClick={() => setFormKind('add-mother')}>+ Anne</button>
         )}
+        {!hasMother && (
+          <LinkParent person={person} people={people} username={username} canApprove={canApprove} slot="mother" />
+        )}
         {!hasFather && (
           <button className="ghost-btn" onClick={() => setFormKind('add-father')}>+ Baba</button>
+        )}
+        {!hasFather && (
+          <LinkParent person={person} people={people} username={username} canApprove={canApprove} slot="father" />
         )}
         <button className="ghost-btn" onClick={() => setFormKind('add-sibling')}>+ Kardeş</button>
         <button className="ghost-btn" onClick={() => setFormKind('add-spouse')}>+ Eş</button>

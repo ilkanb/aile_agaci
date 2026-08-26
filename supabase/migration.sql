@@ -101,6 +101,7 @@ create table public.pending_actions (
   birth_date_value date,
   death_date_value date,
   target_person_id text,
+  parent_slot text check (parent_slot in ('mother', 'father')),
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected'))
 );
 

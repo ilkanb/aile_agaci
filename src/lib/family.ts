@@ -41,6 +41,30 @@ export function getParents(person: Person, people: Record<string, Person>): Pers
   return parents
 }
 
+// True if `candidateId` is `personId` themselves or already reachable by
+// walking down through their descendants — i.e. linking candidateId in as
+// personId's parent would create a cycle (someone can't be their own
+// ancestor). Used to guard "link existing person as parent".
+export function isSelfOrDescendant(
+  personId: string,
+  candidateId: string,
+  people: Record<string, Person>
+): boolean {
+  if (personId === candidateId) return true
+  const visited = new Set<string>()
+  const queue = [personId]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+    for (const child of getChildren(people[current], people)) {
+      if (child.id === candidateId) return true
+      queue.push(child.id)
+    }
+  }
+  return false
+}
+
 // Depth (generation level) = max(parents' depth) + 1. Root ancestors (no parents) start at 0.
 // Spouses are pulled to the same depth as their partner so couples sit on one row.
 export function computeDepths(people: Record<string, Person>): Record<string, number> {

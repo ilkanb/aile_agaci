@@ -25,6 +25,7 @@ export type PendingActionType =
   | 'edit-birthdate'
   | 'edit-deathdate'
   | 'link-spouse'
+  | 'link-parent'
 
 export interface PendingAction {
   id: string
@@ -45,8 +46,11 @@ export interface PendingAction {
   birthDateValue?: string
   // For edit-deathdate: the proposed new death date (empty string clears it)
   deathDateValue?: string
-  // For link-spouse: the id of the already-existing person to link as a spouse
+  // For link-spouse: the id of the already-existing person to link as a spouse.
+  // For link-parent: the id of the already-existing person to link as the parent.
   targetPersonId?: string
+  // For link-parent: which slot the target fills
+  parentSlot?: 'mother' | 'father'
   status: 'pending' | 'approved' | 'rejected'
 }
 

@@ -59,6 +59,7 @@ interface PendingRow {
   birth_date_value: string | null
   death_date_value: string | null
   target_person_id: string | null
+  parent_slot: 'mother' | 'father' | null
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -76,6 +77,7 @@ function rowToPending(row: PendingRow): PendingAction {
     birthDateValue: row.birth_date_value ?? undefined,
     deathDateValue: row.death_date_value ?? undefined,
     targetPersonId: row.target_person_id ?? undefined,
+    parentSlot: row.parent_slot ?? undefined,
     status: row.status,
   }
 }
@@ -93,6 +95,7 @@ function pendingToInsertRow(action: PendingAction) {
     birth_date_value: action.birthDateValue || null,
     death_date_value: action.deathDateValue || null,
     target_person_id: action.targetPersonId ?? null,
+    parent_slot: action.parentSlot ?? null,
     status: action.status,
   }
 }
@@ -153,6 +156,16 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
     }
     await autoFillChildrenOtherParent(people, action.anchorPersonId, targetId)
     await autoFillChildrenOtherParent(people, targetId, action.anchorPersonId)
+    return
+  }
+  if (action.type === 'link-parent') {
+    const targetId = action.targetPersonId
+    const slot = action.parentSlot
+    if (!targetId || !slot || !people[targetId] || targetId === action.anchorPersonId) return
+    if (slot === 'mother' && anchor.motherId) return
+    if (slot === 'father' && anchor.fatherId) return
+    const column = slot === 'mother' ? 'mother_id' : 'father_id'
+    await supabase.from('people').update({ [column]: targetId }).eq('id', action.anchorPersonId)
     return
   }
 
@@ -250,6 +263,7 @@ interface FamilyStore extends FamilyState {
     birthDateValue?: string
     deathDateValue?: string
     targetPersonId?: string
+    parentSlot?: 'mother' | 'father'
     createdBy: string
     autoApprove: boolean
   }) => Promise<void>
@@ -334,6 +348,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
       birthDateValue: input.birthDateValue,
       deathDateValue: input.deathDateValue,
       targetPersonId: input.targetPersonId,
+      parentSlot: input.parentSlot,
       status: input.autoApprove ? 'approved' : 'pending',
     }
 
