@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useFamilyStore } from '../store/familyStore'
 import { useAuthStore, canApprove } from '../store/authStore'
+import { disambiguatedLabel } from '../lib/family'
 import type { Person, PendingAction, Role } from '../types'
 
 const ACTION_TEXT: Record<string, string> = {
@@ -21,19 +22,21 @@ const PARENT_SLOT_LABEL = { mother: 'anne', father: 'baba' } as const
 function describePendingAction(action: PendingAction, people: Record<string, Person>): string {
   const anchor = people[action.anchorPersonId]
   const target = action.targetPersonId ? people[action.targetPersonId] : undefined
+  const anchorLabel = anchor ? disambiguatedLabel(anchor, people) : '?'
+  const targetLabel = target ? disambiguatedLabel(target, people) : '?'
   switch (action.type) {
     case 'edit-note':
-      return `${anchor?.name ?? '?'} için not güncellemesi: "${action.noteValue}"`
+      return `${anchorLabel} için not güncellemesi: "${action.noteValue}"`
     case 'edit-birthdate':
-      return `${anchor?.name ?? '?'} için doğum tarihi güncellemesi: "${action.birthDateValue}"`
+      return `${anchorLabel} için doğum tarihi güncellemesi: "${action.birthDateValue}"`
     case 'edit-deathdate':
-      return `${anchor?.name ?? '?'} için ölüm tarihi güncellemesi: "${action.deathDateValue}"`
+      return `${anchorLabel} için ölüm tarihi güncellemesi: "${action.deathDateValue}"`
     case 'link-spouse':
-      return `${anchor?.name ?? '?'} ile ${target?.name ?? '?'} eşleştirilsin`
+      return `${anchorLabel} ile ${targetLabel} eşleştirilsin`
     case 'link-parent':
-      return `${target?.name ?? '?'}, ${anchor?.name ?? '?'} için ${PARENT_SLOT_LABEL[action.parentSlot ?? 'mother']} olarak bağlansın`
+      return `${targetLabel}, ${anchorLabel} için ${PARENT_SLOT_LABEL[action.parentSlot ?? 'mother']} olarak bağlansın`
     default:
-      return `${action.newPerson?.name} — ${anchor?.name ?? '?'} için ${ACTION_TEXT[action.type]}`
+      return `${action.newPerson?.name} — ${anchorLabel} için ${ACTION_TEXT[action.type]}`
   }
 }
 

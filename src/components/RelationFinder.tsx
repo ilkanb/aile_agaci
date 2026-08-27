@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Person } from '../types'
 import { findRelationPath, describeRelationPath } from '../lib/relationPath'
 import { turkishGenitive } from '../lib/turkish'
+import { PersonPickerLabel } from './PersonPickerLabel'
 
 interface Props {
   person: Person
@@ -74,7 +75,7 @@ export function RelationFinder({ person, people }: Props) {
                 setQuery(p.name)
               }}
             >
-              {p.name}
+              <PersonPickerLabel person={p} people={people} />
             </div>
           ))}
         </div>

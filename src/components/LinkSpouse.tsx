@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Person } from '../types'
 import { useFamilyStore } from '../store/familyStore'
 import { getSpouses } from '../lib/family'
+import { PersonPickerLabel } from './PersonPickerLabel'
 
 interface Props {
   person: Person
@@ -71,7 +72,7 @@ export function LinkSpouse({ person, people, username, canApprove }: Props) {
         <div className="search-results relation-finder-results">
           {results.map((p) => (
             <div key={p.id} className="search-result-item" onClick={() => pick(p.id)}>
-              {p.name}
+              <PersonPickerLabel person={p} people={people} />
             </div>
           ))}
         </div>

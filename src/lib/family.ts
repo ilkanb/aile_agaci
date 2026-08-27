@@ -65,6 +65,16 @@ export function isSelfOrDescendant(
   return false
 }
 
+// A person's name, with their father's (or mother's, if no father recorded)
+// name appended in parentheses — but only when someone else in the tree
+// shares the exact same name, so picker lists stay uncluttered otherwise.
+export function disambiguatedLabel(person: Person, people: Record<string, Person>): string {
+  const hasDuplicate = Object.values(people).some((p) => p.id !== person.id && p.name === person.name)
+  if (!hasDuplicate) return person.name
+  const parentName = (person.fatherId && people[person.fatherId]?.name) || (person.motherId && people[person.motherId]?.name)
+  return parentName ? `${person.name} (${parentName})` : person.name
+}
+
 // Depth (generation level) = max(parents' depth) + 1. Root ancestors (no parents) start at 0.
 // Spouses are pulled to the same depth as their partner so couples sit on one row.
 export function computeDepths(people: Record<string, Person>): Record<string, number> {

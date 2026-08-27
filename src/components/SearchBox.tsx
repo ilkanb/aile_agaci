@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Person } from '../types'
+import { PersonPickerLabel } from './PersonPickerLabel'
 
 interface Props {
   people: Record<string, Person>
@@ -41,7 +42,7 @@ export function SearchBox({ people, onPick }: Props) {
                 setOpen(false)
               }}
             >
-              {p.name}
+              <PersonPickerLabel person={p} people={people} />
             </div>
           ))}
         </div>
