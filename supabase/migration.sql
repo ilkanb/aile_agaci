@@ -8,6 +8,7 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique,
   role text not null default 'member' check (role in ('admin', 'member')),
+  approved boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -31,11 +32,14 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username, role)
+  insert into public.profiles (id, username, role, approved)
   values (
     new.id,
     new.raw_user_meta_data ->> 'username',
-    case when (select count(*) from public.profiles) = 0 then 'admin' else 'member' end
+    case when (select count(*) from public.profiles) = 0 then 'admin' else 'member' end,
+    -- The founding admin is auto-approved; everyone after starts unapproved
+    -- until an admin reviews them.
+    case when (select count(*) from public.profiles) = 0 then true else false end
   );
   return new;
 end;
@@ -85,6 +89,50 @@ create policy "people deletable by admins"
   to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 
+-- profiles.person_id references people, so it's added only now that
+-- `people` actually exists (profiles is created earlier, in section 1).
+alter table public.profiles add column person_id text references public.people (id) on delete set null;
+
+-- Column-level masking: RLS can only hide whole rows, not individual
+-- columns, so unapproved viewers get the structural columns (needed to
+-- render the tree shape at all) with the sensitive ones blanked out —
+-- except for their own claimed person, which they can always see in full.
+create view public.people_visible
+with (security_invoker = true)
+as
+select
+  id,
+  name,
+  gender,
+  mother_id,
+  father_id,
+  spouse_ids,
+  case
+    when coalesce((select approved from public.profiles where id = auth.uid()), false)
+      or id = (select person_id from public.profiles where id = auth.uid())
+    then note else ''
+  end as note,
+  case
+    when coalesce((select approved from public.profiles where id = auth.uid()), false)
+      or id = (select person_id from public.profiles where id = auth.uid())
+    then birth_date else null
+  end as birth_date,
+  case
+    when coalesce((select approved from public.profiles where id = auth.uid()), false)
+      or id = (select person_id from public.profiles where id = auth.uid())
+    then death_date else null
+  end as death_date,
+  case
+    when coalesce((select approved from public.profiles where id = auth.uid()), false)
+      or id = (select person_id from public.profiles where id = auth.uid())
+    then photo_url else null
+  end as photo_url,
+  created_at,
+  updated_at
+from public.people;
+
+grant select on public.people_visible to authenticated;
+
 -- ============================================================
 -- 3. pending_actions — üyelerin onay bekleyen önerileri
 -- ============================================================
@@ -102,6 +150,8 @@ create table public.pending_actions (
   death_date_value date,
   target_person_id text,
   parent_slot text check (parent_slot in ('mother', 'father')),
+  name_value text,
+  gender_value text check (gender_value in ('K', 'E', '?')),
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected'))
 );
 

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { FamilyState, Gender, Person, PendingAction, PendingActionType } from '../types'
 import { supabase } from '../lib/supabaseClient'
+import { useAuthStore } from './authStore'
 
 interface PersonRow {
   id: string
@@ -29,6 +30,16 @@ function rowToPerson(row: PersonRow): Person {
     deathDate: row.death_date ?? undefined,
     photoUrl: row.photo_url ?? undefined,
   }
+}
+
+// Realtime delivers raw `people` table rows (views can't be subscribed to),
+// so the column-masking the people_visible view does for unapproved viewers
+// has to be re-applied client-side here — otherwise a live INSERT/UPDATE
+// would leak note/birth_date/death_date/photo_url straight past the view.
+function maskIfNeeded(row: PersonRow): PersonRow {
+  const user = useAuthStore.getState().currentUser
+  if (!user || user.approved || row.id === user.personId) return row
+  return { ...row, note: '', birth_date: null, death_date: null, photo_url: null }
 }
 
 function personToInsertRow(id: string, person: Omit<Person, 'id'>) {
@@ -60,6 +71,8 @@ interface PendingRow {
   death_date_value: string | null
   target_person_id: string | null
   parent_slot: 'mother' | 'father' | null
+  name_value: string | null
+  gender_value: Gender | null
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -78,6 +91,8 @@ function rowToPending(row: PendingRow): PendingAction {
     deathDateValue: row.death_date_value ?? undefined,
     targetPersonId: row.target_person_id ?? undefined,
     parentSlot: row.parent_slot ?? undefined,
+    nameValue: row.name_value ?? undefined,
+    genderValue: row.gender_value ?? undefined,
     status: row.status,
   }
 }
@@ -96,6 +111,8 @@ function pendingToInsertRow(action: PendingAction) {
     death_date_value: action.deathDateValue || null,
     target_person_id: action.targetPersonId ?? null,
     parent_slot: action.parentSlot ?? null,
+    name_value: action.nameValue ?? null,
+    gender_value: action.genderValue ?? null,
     status: action.status,
   }
 }
@@ -136,6 +153,22 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
   }
   if (action.type === 'edit-deathdate') {
     await supabase.from('people').update({ death_date: action.deathDateValue || null }).eq('id', action.anchorPersonId)
+    return
+  }
+  if (action.type === 'edit-name') {
+    if (!action.nameValue?.trim()) return
+    await supabase.from('people').update({ name: action.nameValue.trim() }).eq('id', action.anchorPersonId)
+    return
+  }
+  if (action.type === 'edit-gender') {
+    if (!action.genderValue) return
+    await supabase.from('people').update({ gender: action.genderValue }).eq('id', action.anchorPersonId)
+    return
+  }
+  if (action.type === 'claim-person') {
+    // Not a `people` write at all — links the proposing user's own profile
+    // to the person they say they are.
+    await supabase.from('profiles').update({ person_id: action.targetPersonId ?? null }).eq('username', action.createdBy)
     return
   }
   if (action.type === 'link-spouse') {
@@ -264,6 +297,8 @@ interface FamilyStore extends FamilyState {
     deathDateValue?: string
     targetPersonId?: string
     parentSlot?: 'mother' | 'father'
+    nameValue?: string
+    genderValue?: Gender
     createdBy: string
     autoApprove: boolean
   }) => Promise<void>
@@ -286,7 +321,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
     set({ initialized: true })
 
     Promise.all([
-      supabase.from('people').select('*'),
+      supabase.from('people_visible').select('*'),
       supabase.from('pending_actions').select('*'),
     ]).then(([peopleRes, pendingRes]) => {
       const people: Record<string, Person> = {}
@@ -301,7 +336,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
         set((state) => {
           const people = { ...state.people }
           if (payload.eventType === 'DELETE') delete people[(payload.old as PersonRow).id]
-          else people[(payload.new as PersonRow).id] = rowToPerson(payload.new as PersonRow)
+          else people[(payload.new as PersonRow).id] = rowToPerson(maskIfNeeded(payload.new as PersonRow))
           return { people }
         })
       })
@@ -349,6 +384,8 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
       deathDateValue: input.deathDateValue,
       targetPersonId: input.targetPersonId,
       parentSlot: input.parentSlot,
+      nameValue: input.nameValue,
+      genderValue: input.genderValue,
       status: input.autoApprove ? 'approved' : 'pending',
     }
 

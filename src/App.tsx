@@ -94,6 +94,8 @@ function App() {
           people={people}
           username={currentUser.id}
           canApprove={canApprove(currentUser)}
+          approved={currentUser.approved}
+          myPersonId={currentUser.personId}
           onClose={() => select(null)}
           onDeleted={() => select(null)}
           onCenterOn={(id) => setEgoFocalId(id)}

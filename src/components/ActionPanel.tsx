@@ -11,6 +11,8 @@ interface Props {
   people: Record<string, Person>
   username: string
   canApprove: boolean
+  approved: boolean
+  myPersonId?: string
   onClose: () => void
   onDeleted: () => void
   onCenterOn: (id: string) => void
@@ -29,7 +31,12 @@ const ACTION_LABELS: Record<PendingActionType, string> = {
   'edit-deathdate': 'Ölüm tarihi güncelle',
   'link-spouse': 'Mevcut kişiyle eşleştir',
   'link-parent': 'Mevcut kişiyi ebeveyn olarak bağla',
+  'edit-name': 'İsim güncelle',
+  'edit-gender': 'Cinsiyet güncelle',
+  'claim-person': 'Kendini işaretle',
 }
+
+const GENDER_LABEL: Record<Gender, string> = { '?': 'Bilinmiyor', K: 'Kadın', E: 'Erkek' }
 
 function formatBirthDate(value?: string): string {
   if (!value) return 'Doğum tarihi eklemek için tıkla...'
@@ -45,7 +52,17 @@ function formatDeathDate(value?: string): string {
   return d.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export function ActionPanel({ person, people, username, canApprove, onClose, onDeleted, onCenterOn }: Props) {
+export function ActionPanel({
+  person,
+  people,
+  username,
+  canApprove,
+  approved,
+  myPersonId,
+  onClose,
+  onDeleted,
+  onCenterOn,
+}: Props) {
   const submitAction = useFamilyStore((s) => s.submitAction)
   const deletePerson = useFamilyStore((s) => s.deletePerson)
 
@@ -63,6 +80,11 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
   const [birthDateDraft, setBirthDateDraft] = useState(person.birthDate ?? '')
   const [editingDeathDate, setEditingDeathDate] = useState(false)
   const [deathDateDraft, setDeathDateDraft] = useState(person.deathDate ?? '')
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(person.name)
+  const [editingGender, setEditingGender] = useState(false)
+  const [genderDraft, setGenderDraft] = useState<Gender>(person.gender)
+  const [claimed, setClaimed] = useState(false)
 
   const parents = getParents(person, people)
   const spouses = getSpouses(person, people)
@@ -136,11 +158,56 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
     setEditingDeathDate(false)
   }
 
+  function saveName() {
+    if (!nameDraft.trim()) return
+    submitAction({
+      type: 'edit-name',
+      anchorPersonId: person.id,
+      nameValue: nameDraft.trim(),
+      createdBy: username,
+      autoApprove: canApprove,
+    })
+    setEditingName(false)
+  }
+
+  function saveGender() {
+    submitAction({
+      type: 'edit-gender',
+      anchorPersonId: person.id,
+      genderValue: genderDraft,
+      createdBy: username,
+      autoApprove: canApprove,
+    })
+    setEditingGender(false)
+  }
+
+  function claimPerson() {
+    submitAction({
+      type: 'claim-person',
+      anchorPersonId: person.id,
+      targetPersonId: person.id,
+      createdBy: username,
+      autoApprove: canApprove,
+    })
+    setClaimed(true)
+  }
+
   return (
     <div className="action-panel">
       <div className="action-panel-header">
         <div>
-          <div className="action-panel-name">{person.name}</div>
+          {editingName ? (
+            <div className="note-row">
+              <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus />
+              <button className="primary-btn" onClick={saveName} disabled={!nameDraft.trim()}>
+                {canApprove ? 'Kaydet' : 'Onaya gönder'}
+              </button>
+            </div>
+          ) : (
+            <div className="action-panel-name" onClick={() => setEditingName(true)} style={{ cursor: 'pointer' }}>
+              {person.name}
+            </div>
+          )}
           <div className="action-panel-meta">
             {parents.length > 0 && <span>Ebeveyn: {parents.map((p) => p.name).join(', ')}</span>}
             {spouses.length > 0 && <span> · Eş: {spouses.map((p) => p.name).join(', ')}</span>}
@@ -153,47 +220,76 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         ◎ Merkeze Al
       </button>
 
-      {editingNote ? (
+      {editingGender ? (
         <div className="note-row">
-          <input
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            placeholder="Not (örn. Almanya'da yaşıyor)"
-          />
-          <button className="primary-btn" onClick={saveNote}>
+          <select value={genderDraft} onChange={(e) => setGenderDraft(e.target.value as Gender)}>
+            <option value="?">Cinsiyet bilinmiyor</option>
+            <option value="K">Kadın</option>
+            <option value="E">Erkek</option>
+          </select>
+          <button className="primary-btn" onClick={saveGender}>
             {canApprove ? 'Kaydet' : 'Onaya gönder'}
           </button>
         </div>
       ) : (
-        <div className="note-display" onClick={() => setEditingNote(true)}>
-          {person.note || 'Not eklemek için tıkla...'}
+        <div className="note-display" onClick={() => setEditingGender(true)}>
+          Cinsiyet: {GENDER_LABEL[person.gender]}
         </div>
       )}
 
-      {editingBirthDate ? (
-        <div className="note-row">
-          <input type="date" value={birthDateDraft} onChange={(e) => setBirthDateDraft(e.target.value)} />
-          <button className="primary-btn" onClick={saveBirthDate}>
-            {canApprove ? 'Kaydet' : 'Onaya gönder'}
-          </button>
-        </div>
-      ) : (
-        <div className="note-display" onClick={() => setEditingBirthDate(true)}>
-          {formatBirthDate(person.birthDate)}
+      {!approved && (
+        <div className="note-display" style={{ fontStyle: 'italic' }}>
+          Not, doğum/ölüm tarihi gibi ayrıntılar bir yönetici seni onaylayana kadar gizli.
         </div>
       )}
 
-      {editingDeathDate ? (
-        <div className="note-row">
-          <input type="date" value={deathDateDraft} onChange={(e) => setDeathDateDraft(e.target.value)} />
-          <button className="primary-btn" onClick={saveDeathDate}>
-            {canApprove ? 'Kaydet' : 'Onaya gönder'}
-          </button>
-        </div>
-      ) : (
-        <div className="note-display" onClick={() => setEditingDeathDate(true)}>
-          {formatDeathDate(person.deathDate)}
-        </div>
+      {approved && (
+        editingNote ? (
+          <div className="note-row">
+            <input
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="Not (örn. Almanya'da yaşıyor)"
+            />
+            <button className="primary-btn" onClick={saveNote}>
+              {canApprove ? 'Kaydet' : 'Onaya gönder'}
+            </button>
+          </div>
+        ) : (
+          <div className="note-display" onClick={() => setEditingNote(true)}>
+            {person.note || 'Not eklemek için tıkla...'}
+          </div>
+        )
+      )}
+
+      {approved && (
+        editingBirthDate ? (
+          <div className="note-row">
+            <input type="date" value={birthDateDraft} onChange={(e) => setBirthDateDraft(e.target.value)} />
+            <button className="primary-btn" onClick={saveBirthDate}>
+              {canApprove ? 'Kaydet' : 'Onaya gönder'}
+            </button>
+          </div>
+        ) : (
+          <div className="note-display" onClick={() => setEditingBirthDate(true)}>
+            {formatBirthDate(person.birthDate)}
+          </div>
+        )
+      )}
+
+      {approved && (
+        editingDeathDate ? (
+          <div className="note-row">
+            <input type="date" value={deathDateDraft} onChange={(e) => setDeathDateDraft(e.target.value)} />
+            <button className="primary-btn" onClick={saveDeathDate}>
+              {canApprove ? 'Kaydet' : 'Onaya gönder'}
+            </button>
+          </div>
+        ) : (
+          <div className="note-display" onClick={() => setEditingDeathDate(true)}>
+            {formatDeathDate(person.deathDate)}
+          </div>
+        )
       )}
 
       <div className="action-buttons">
@@ -214,6 +310,12 @@ export function ActionPanel({ person, people, username, canApprove, onClose, onD
         <button className="ghost-btn" onClick={() => setFormKind('add-child')}>+ Çocuk</button>
         <LinkSpouse person={person} people={people} username={username} canApprove={canApprove} />
         <RelationFinder person={person} people={people} />
+        {!myPersonId && !claimed && (
+          <button className="ghost-btn" onClick={claimPerson}>
+            Ben Buyum
+          </button>
+        )}
+        {!myPersonId && claimed && <span className="pending-item-meta">Onaya gönderildi</span>}
         {canApprove && (
           <button
             className="danger-btn"

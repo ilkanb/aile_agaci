@@ -26,6 +26,9 @@ export type PendingActionType =
   | 'edit-deathdate'
   | 'link-spouse'
   | 'link-parent'
+  | 'edit-name'
+  | 'edit-gender'
+  | 'claim-person'
 
 export interface PendingAction {
   id: string
@@ -51,6 +54,10 @@ export interface PendingAction {
   targetPersonId?: string
   // For link-parent: which slot the target fills
   parentSlot?: 'mother' | 'father'
+  // For edit-name: the proposed new name
+  nameValue?: string
+  // For edit-gender: the proposed new gender
+  genderValue?: Gender
   status: 'pending' | 'approved' | 'rejected'
 }
 
@@ -65,5 +72,7 @@ export interface User {
   id: string
   passwordHash: string
   role: Role
+  approved: boolean
+  personId?: string
   createdAt: number
 }

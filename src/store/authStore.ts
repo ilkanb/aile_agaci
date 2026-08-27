@@ -5,11 +5,20 @@ import { supabase, usernameToEmail } from '../lib/supabaseClient'
 interface ProfileRow {
   username: string
   role: Role
+  approved: boolean
+  person_id: string | null
   created_at: string
 }
 
 function rowToUser(row: ProfileRow): User {
-  return { id: row.username, passwordHash: '', role: row.role, createdAt: new Date(row.created_at).getTime() }
+  return {
+    id: row.username,
+    passwordHash: '',
+    role: row.role,
+    approved: row.approved,
+    personId: row.person_id ?? undefined,
+    createdAt: new Date(row.created_at).getTime(),
+  }
 }
 
 export function canApprove(user: User | null | undefined): boolean {
@@ -27,7 +36,10 @@ interface AuthStore {
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => Promise<void>
   setRole: (username: string, role: Role) => Promise<void>
+  approveUser: (username: string) => Promise<void>
 }
+
+const PROFILE_COLUMNS = 'username, role, approved, person_id, created_at'
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   currentUser: null,
@@ -44,11 +56,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         set({ currentUser: null, ready: true })
         return
       }
-      const { data } = await supabase
-        .from('profiles')
-        .select('username, role, created_at')
-        .eq('id', session.user.id)
-        .single()
+      const { data } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).single()
       set({ currentUser: data ? rowToUser(data) : null, ready: true })
     })
 
@@ -60,11 +68,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   refreshUsers: async () => {
-    const { data } = await supabase.from('profiles').select('username, role, created_at')
+    const { data } = await supabase.from('profiles').select(PROFILE_COLUMNS)
     if (!data) return
     const users: Record<string, User> = {}
     for (const row of data as ProfileRow[]) users[row.username] = rowToUser(row)
     set({ users })
+    // Our own row may have just changed (e.g. an admin approved us, or
+    // claimed/renamed our linked person) — refresh currentUser to match
+    // instead of waiting for another auth event that may never come.
+    const current = get().currentUser
+    if (current && users[current.id]) set({ currentUser: users[current.id] })
   },
 
   register: async (usernameRaw, password) => {
@@ -108,5 +121,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   setRole: async (username, role) => {
     await supabase.from('profiles').update({ role }).eq('username', username)
+  },
+
+  approveUser: async (username) => {
+    await supabase.from('profiles').update({ approved: true }).eq('username', username)
   },
 }))

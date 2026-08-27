@@ -35,6 +35,12 @@ function describePendingAction(action: PendingAction, people: Record<string, Per
       return `${anchorLabel} ile ${targetLabel} eşleştirilsin`
     case 'link-parent':
       return `${targetLabel}, ${anchorLabel} için ${PARENT_SLOT_LABEL[action.parentSlot ?? 'mother']} olarak bağlansın`
+    case 'edit-name':
+      return `${anchorLabel} için isim güncellemesi: "${action.nameValue}"`
+    case 'edit-gender':
+      return `${anchorLabel} için cinsiyet güncellemesi`
+    case 'claim-person':
+      return `${action.createdBy}, kendisini ${anchorLabel} olarak işaretlemek istiyor`
     default:
       return `${action.newPerson?.name} — ${anchorLabel} için ${ACTION_TEXT[action.type]}`
   }
@@ -45,6 +51,7 @@ export function AdminBar() {
   const logout = useAuthStore((s) => s.logout)
   const users = useAuthStore((s) => s.users)
   const setRole = useAuthStore((s) => s.setRole)
+  const approveUser = useAuthStore((s) => s.approveUser)
 
   const pending = useFamilyStore((s) => s.pending)
   const people = useFamilyStore((s) => s.people)
@@ -53,9 +60,11 @@ export function AdminBar() {
 
   const [showPending, setShowPending] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
+  const [showUnapproved, setShowUnapproved] = useState(false)
 
   if (!currentUser) return null
   const userCanApprove = canApprove(currentUser)
+  const unapprovedUsers = Object.values(users).filter((u) => !u.approved)
 
   return (
     <div className="admin-bar">
@@ -66,6 +75,12 @@ export function AdminBar() {
       {pending.length > 0 && (
         <button className="ghost-btn" onClick={() => setShowPending((v) => !v)}>
           Onay Bekleyenler ({pending.length})
+        </button>
+      )}
+
+      {currentUser.role === 'admin' && unapprovedUsers.length > 0 && (
+        <button className="ghost-btn" onClick={() => setShowUnapproved((v) => !v)}>
+          Onay Bekleyen Üyeler ({unapprovedUsers.length})
         </button>
       )}
 
@@ -100,13 +115,33 @@ export function AdminBar() {
         </div>
       )}
 
+      {showUnapproved && currentUser.role === 'admin' && (
+        <div className="popover pending-list">
+          {unapprovedUsers.length === 0 && <div>Onay bekleyen yok</div>}
+          {unapprovedUsers.map((u) => (
+            <div key={u.id} className="pending-item">
+              <div>
+                <strong>{u.id}</strong>
+                <div className="pending-item-meta">Kayıt oldu, ağacın sınırlı (isim/soyisim) görünümünü görüyor</div>
+              </div>
+              <div className="pending-item-actions">
+                <button className="primary-btn" onClick={() => approveUser(u.id)}>Onayla</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {showUsers && currentUser.role === 'admin' && (
         <div className="popover pending-list">
           {Object.values(users).map((u) => (
             <div key={u.id} className="pending-item">
               <div>
                 <strong>{u.id}</strong>
-                <div className="pending-item-meta">{ROLE_LABEL[u.role]}</div>
+                <div className="pending-item-meta">
+                  {ROLE_LABEL[u.role]}
+                  {!u.approved && ' · onaysız'}
+                </div>
               </div>
               {u.id !== currentUser.id && (
                 <div className="pending-item-actions">
