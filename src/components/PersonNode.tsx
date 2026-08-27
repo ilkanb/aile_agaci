@@ -13,6 +13,14 @@ interface Props {
   onClick: (id: string) => void
 }
 
+// No religious/cultural symbol — just the death year in parentheses, same
+// convention as a birth-death range in a plain genealogy record.
+function deathSuffix(person: Person): string {
+  if (!person.deathDate) return ''
+  const year = new Date(person.deathDate).getFullYear()
+  return Number.isNaN(year) ? '' : ` (ö. ${year})`
+}
+
 function borderColorFor(person: Person): string {
   if (person.gender === 'K') return 'var(--rose)'
   if (person.gender === 'E') return 'var(--pine)'
@@ -51,7 +59,7 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
         role="button"
         tabIndex={0}
         onClick={() => onClick(person.id)}
-        title={person.name}
+        title={`${person.name}${deathSuffix(person)}`}
         style={{
           position: 'absolute',
           left: x + NODE_WIDTH / 2 - 7,
@@ -94,7 +102,10 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
         }}
       >
         <GenderShape gender={person.gender} size={9} color={border} />
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.name}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {person.name}
+          {person.deathDate && <span style={{ color: 'var(--text-dim)' }}>{deathSuffix(person)}</span>}
+        </span>
       </div>
     )
   }
@@ -137,6 +148,7 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
           }}
         >
           {person.name}
+          {person.deathDate && <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>{deathSuffix(person)}</span>}
         </div>
       </div>
       {person.note && (

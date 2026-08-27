@@ -28,6 +28,7 @@ function App() {
 
   useEffect(() => {
     if (currentUser) useFamilyStore.getState().init()
+    else useFamilyStore.getState().reset()
   }, [currentUser])
 
   function focusPerson(id: string) {

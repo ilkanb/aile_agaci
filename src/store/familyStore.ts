@@ -285,6 +285,7 @@ interface FamilyStore extends FamilyState {
   ready: boolean
   initialized: boolean
   init: () => void
+  reset: () => void
   select: (id: string | null) => void
   submitAction: (input: {
     type: PendingActionType
@@ -309,12 +310,28 @@ interface FamilyStore extends FamilyState {
   deletePerson: (id: string) => Promise<void>
 }
 
+let peopleChannel: ReturnType<typeof supabase.channel> | null = null
+let pendingChannel: ReturnType<typeof supabase.channel> | null = null
+
 export const useFamilyStore = create<FamilyStore>((set, get) => ({
   people: {},
   pending: [],
   selectedPersonId: null,
   ready: false,
   initialized: false,
+
+  // Different users can see different data through people_visible (an
+  // unapproved viewer's masked columns vs. an admin's full view) — without
+  // this, logging out of one account and into another within the same tab
+  // would keep serving whatever the *previous* session had already fetched,
+  // since init() only ever runs its fetch once per page load otherwise.
+  reset: () => {
+    if (peopleChannel) supabase.removeChannel(peopleChannel)
+    if (pendingChannel) supabase.removeChannel(pendingChannel)
+    peopleChannel = null
+    pendingChannel = null
+    set({ people: {}, pending: [], selectedPersonId: null, ready: false, initialized: false })
+  },
 
   init: () => {
     if (get().initialized) return
@@ -330,7 +347,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
       set({ people, pending, ready: true })
     })
 
-    supabase
+    peopleChannel = supabase
       .channel('people-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, (payload) => {
         set((state) => {
@@ -342,7 +359,7 @@ export const useFamilyStore = create<FamilyStore>((set, get) => ({
       })
       .subscribe()
 
-    supabase
+    pendingChannel = supabase
       .channel('pending-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_actions' }, (payload) => {
         set((state) => {
