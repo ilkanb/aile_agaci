@@ -315,7 +315,9 @@ export function ActionPanel({
             Ben Buyum
           </button>
         )}
-        {!myPersonId && claimed && <span className="pending-item-meta">Onaya gönderildi</span>}
+        {!myPersonId && claimed && (
+          <span className="pending-item-meta">{canApprove ? 'Bağlandı.' : 'Onaya gönderildi.'}</span>
+        )}
         {canApprove && (
           <button
             className="danger-btn"

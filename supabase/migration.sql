@@ -177,3 +177,4 @@ create policy "admins can delete pending actions"
 -- ============================================================
 alter publication supabase_realtime add table public.people;
 alter publication supabase_realtime add table public.pending_actions;
+alter publication supabase_realtime add table public.profiles;

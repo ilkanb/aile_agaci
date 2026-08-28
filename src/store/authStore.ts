@@ -119,11 +119,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     await supabase.auth.signOut()
   },
 
+  // These don't just wait on the profiles-changes realtime subscription to
+  // reflect the write back — profiles was never added to the
+  // supabase_realtime publication (only people/pending_actions were), so
+  // that channel never actually fires and the admin's own list would look
+  // unchanged despite the update having succeeded in the database.
   setRole: async (username, role) => {
     await supabase.from('profiles').update({ role }).eq('username', username)
+    await get().refreshUsers()
   },
 
   approveUser: async (username) => {
     await supabase.from('profiles').update({ approved: true }).eq('username', username)
+    await get().refreshUsers()
   },
 }))

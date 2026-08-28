@@ -167,8 +167,11 @@ async function applyActionRemote(people: Record<string, Person>, action: Pending
   }
   if (action.type === 'claim-person') {
     // Not a `people` write at all — links the proposing user's own profile
-    // to the person they say they are.
+    // to the person they say they are. profiles isn't on the realtime
+    // publication, so the claiming user's own currentUser.personId would
+    // otherwise stay stale until an unrelated refresh happened to fire.
     await supabase.from('profiles').update({ person_id: action.targetPersonId ?? null }).eq('username', action.createdBy)
+    await useAuthStore.getState().refreshUsers()
     return
   }
   if (action.type === 'link-spouse') {
