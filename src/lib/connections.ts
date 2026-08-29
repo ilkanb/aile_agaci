@@ -16,7 +16,8 @@ export interface ConnectionPath {
 }
 
 function centerX(layout: Layout, id: string): number {
-  return layout.nodes[id].x + NODE_WIDTH / 2
+  const node = layout.nodes[id]
+  return node.x + (node.width ?? NODE_WIDTH) / 2
 }
 
 export function computeConnections(layout: Layout, people: Record<string, Person>): ConnectionPath[] {
@@ -33,8 +34,8 @@ export function computeConnections(layout: Layout, people: Record<string, Person
     const ay = a.y + NODE_HEIGHT / 2
     const by = b.y + NODE_HEIGHT / 2
     const aOnLeft = a.x <= b.x
-    const ax = aOnLeft ? a.x + NODE_WIDTH : a.x
-    const bx = aOnLeft ? b.x : b.x + NODE_WIDTH
+    const ax = aOnLeft ? a.x + (a.width ?? NODE_WIDTH) : a.x
+    const bx = aOnLeft ? b.x : b.x + (b.width ?? NODE_WIDTH)
     paths.push({
       id: `spouse-${edge.from}-${edge.to}`,
       kind: 'spouse',

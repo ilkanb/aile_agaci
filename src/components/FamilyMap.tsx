@@ -5,7 +5,7 @@ import 'd3-transition'
 import type { Person } from '../types'
 import { computeLayout } from '../lib/layout'
 import { computeEgoLayout } from '../lib/egoLayout'
-import { computeConnections, NODE_WIDTH, NODE_HEIGHT } from '../lib/connections'
+import { computeConnections, NODE_HEIGHT } from '../lib/connections'
 import { PersonNode, type Lod } from './PersonNode'
 
 interface Props {
@@ -44,7 +44,7 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
     return {
       minX: Math.min(...nodes.map((n) => n.x)) - 40,
       minY: Math.min(...nodes.map((n) => n.y)) - 40,
-      maxX: Math.max(...nodes.map((n) => n.x)) + NODE_WIDTH + 40,
+      maxX: Math.max(...nodes.map((n) => n.x + n.width)) + 40,
       maxY: Math.max(...nodes.map((n) => n.y)) + NODE_HEIGHT + 40,
     }
   }, [layout])
@@ -94,7 +94,7 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
       const w = el.clientWidth
       const h = el.clientHeight
       const targetK = Math.max(transform.k, 0.95)
-      const cx = node.x + NODE_WIDTH / 2
+      const cx = node.x + node.width / 2
       const cy = node.y + NODE_HEIGHT / 2
       const next = zoomIdentity.translate(w / 2 - cx * targetK, h / 2 - cy * targetK).scale(targetK)
       select(el).transition().duration(400).call(behavior.transform, next)
@@ -166,6 +166,7 @@ export const FamilyMap = forwardRef<FamilyMapHandle, Props>(function FamilyMap({
             person={people[node.id]}
             x={node.x}
             y={node.y}
+            width={node.width}
             lod={lod}
             isSelected={node.id === selectedId}
             onClick={onSelect}

@@ -1,11 +1,16 @@
 import type { Person } from '../types'
 import { computeDepths } from './family'
+import { cardWidthFor, GUTTER } from './nodeSize'
 
 export interface LayoutNode {
   id: string
   x: number
   y: number
   depth: number
+  // Reserved box width for this person — long names get a wider box instead
+  // of being truncated, so spacing/collision logic can't use one flat
+  // column width for everyone anymore.
+  width: number
 }
 
 export interface LayoutEdge {
@@ -99,6 +104,8 @@ export function computeLayout(people: Record<string, Person>): Layout {
   const depths = computeDepths(people)
   const years = computeYears(people, depths)
   const ids = Object.keys(people)
+  const widths: Record<string, number> = {}
+  for (const id of ids) widths[id] = cardWidthFor(people[id])
 
   const bandOf = (id: string) => Math.round(years[id] / BAND_YEARS)
 
@@ -202,13 +209,15 @@ export function computeLayout(people: Record<string, Person>): Layout {
   const x: Record<string, number> = {}
   for (const band of [...sortedBands].reverse()) {
     const row = bands.get(band)!
-    let prevX: number | null = null
+    let prevRightEdge: number | null = null
     for (const id of row) {
       const kids = (childrenOf.get(id) ?? []).filter((cid) => x[cid] !== undefined)
-      const minX = prevX === null ? 0 : prevX + COL_WIDTH
-      const desired = kids.length > 0 ? kids.reduce((sum, cid) => sum + x[cid], 0) / kids.length : minX
+      const minX = prevRightEdge === null ? 0 : prevRightEdge + GUTTER
+      const desiredCenter =
+        kids.length > 0 ? kids.reduce((sum, cid) => sum + x[cid] + widths[cid] / 2, 0) / kids.length : minX + widths[id] / 2
+      const desired = desiredCenter - widths[id] / 2
       x[id] = Math.max(desired, minX)
-      prevX = x[id]
+      prevRightEdge = x[id] + widths[id]
     }
   }
 
@@ -220,6 +229,7 @@ export function computeLayout(people: Record<string, Person>): Layout {
       x: x[id],
       y: (years[id] - minYear) * YEAR_PX,
       depth: depths[id],
+      width: widths[id],
     }
   }
 
@@ -255,7 +265,10 @@ export function computeLayout(people: Record<string, Person>): Layout {
         if (dy >= STACK_AVOID_Y) break
         const withinTightRange = dy < NODE_BOX_HEIGHT
         if (!withinTightRange && isParentChild(id, otherId)) continue
-        const minDx = withinTightRange ? COL_WIDTH : COL_WIDTH / 2
+        // x is each box's *left* edge, and any fix always places id to the
+        // right of otherId (see below) — so the only width that matters for
+        // clearance is otherId's own, i.e. how far its right edge reaches.
+        const minDx = withinTightRange ? widths[otherId] + GUTTER : (widths[otherId] + GUTTER) / 2
         const dx = Math.abs(nodes[id].x - nodes[otherId].x)
         // Always push id right of otherId (never left) when resolving a
         // conflict — a bidirectional push here can oscillate indefinitely

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Gender, Person } from '../types'
-import { NODE_WIDTH, NODE_HEIGHT } from '../lib/connections'
+import { NODE_HEIGHT } from '../lib/connections'
 
 export type Lod = 'dot' | 'label' | 'card'
 
@@ -8,6 +8,7 @@ interface Props {
   person: Person
   x: number
   y: number
+  width: number
   lod: Lod
   isSelected: boolean
   onClick: (id: string) => void
@@ -50,7 +51,7 @@ function GenderShape({ gender, size, color }: { gender: Gender; size: number; co
   )
 }
 
-export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelected, onClick }: Props) {
+export const PersonNode = memo(function PersonNode({ person, x, y, width, lod, isSelected, onClick }: Props) {
   const border = isSelected ? 'var(--gold)' : borderColorFor(person)
 
   if (lod === 'dot') {
@@ -62,7 +63,7 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
         title={`${person.name}${deathSuffix(person)}`}
         style={{
           position: 'absolute',
-          left: x + NODE_WIDTH / 2 - 7,
+          left: x + width / 2 - 7,
           top: y + NODE_HEIGHT / 2 - 7,
           width: 14,
           height: 14,
@@ -85,7 +86,7 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
           position: 'absolute',
           left: x,
           top: y + NODE_HEIGHT / 2 - 14,
-          width: NODE_WIDTH,
+          width,
           height: 28,
           display: 'flex',
           alignItems: 'center',
@@ -119,7 +120,7 @@ export const PersonNode = memo(function PersonNode({ person, x, y, lod, isSelect
         position: 'absolute',
         left: x,
         top: y,
-        width: NODE_WIDTH,
+        width,
         height: NODE_HEIGHT,
         background: 'var(--bg-elevated)',
         border: `2px solid ${border}`,
